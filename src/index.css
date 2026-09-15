@@ -1,0 +1,98 @@
+:root {
+  --bg: #0d1117;
+  --surface: #151b23;
+  --surface-2: #1c2331;
+  --field: #0b0f16;
+  --border: #262d3a;
+  --border-strong: #384152;
+  --text: #e6edf3;
+  --text-muted: #96a1b1;
+  --accent: #4c8dff;
+  --accent-text: #0b0f16;
+  --accent-soft: rgba(76, 141, 255, 0.14);
+  --success: #3fb950;
+  --success-soft: rgba(63, 185, 80, 0.15);
+  --danger: #f8737f;
+  --danger-soft: rgba(248, 115, 127, 0.15);
+  --warning: #e3b341;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+  --sidebar-width: 280px;
+
+  color-scheme: dark;
+  font: 15px/1.5 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 26px;
+}
+h2 {
+  font-size: 18px;
+}
+h3 {
+  font-size: 15px;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+kbd {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Тонкие скроллбары внутри тёмного интерфейса */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}

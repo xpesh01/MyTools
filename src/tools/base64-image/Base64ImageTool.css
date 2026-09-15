@@ -1,0 +1,43 @@
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.dropzone--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.preview {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Шахматка, чтобы была видна прозрачность PNG */
+  background-color: var(--field);
+  background-image:
+    linear-gradient(45deg, var(--surface-2) 25%, transparent 25% 75%, var(--surface-2) 75%),
+    linear-gradient(45deg, var(--surface-2) 25%, transparent 25% 75%, var(--surface-2) 75%);
+  background-position:
+    0 0,
+    8px 8px;
+  background-size: 16px 16px;
+}
+
+.preview img {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}

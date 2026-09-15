@@ -1,0 +1,53 @@
+.diff {
+  max-height: 460px;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--field);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff__chunk--equal {
+  color: var(--text-muted);
+}
+
+.diff__chunk--insert {
+  background: var(--success-soft);
+  color: #7ee787;
+  border-radius: 3px;
+}
+
+.diff__chunk--delete {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: 3px;
+  text-decoration: line-through;
+  text-decoration-color: rgba(248, 115, 127, 0.5);
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+}
+
+.legend::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.legend--insert::before {
+  background: #7ee787;
+}
+
+.legend--delete::before {
+  background: var(--danger);
+}
