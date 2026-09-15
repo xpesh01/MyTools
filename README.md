@@ -112,3 +112,18 @@ export default function JsonFormatTool() {
 `HashRouter`, поэтому ссылки вида `/#/tools/text-diff` работают без настройки сервера.
 Если хочется URL без `#`, замените в `src/main.tsx` `HashRouter` на `BrowserRouter` и настройте
 на хостинге отдачу `index.html` для всех путей.
+
+### GitHub Pages
+
+`.github/workflows/deploy.yml` собирает и публикует сайт при каждом пуше в `master` (или `main`).
+Один раз нужно включить хостинг: **Settings → Pages → Build and deployment → Source: GitHub
+Actions**. Для бесплатного Pages репозиторий должен быть публичным.
+
+Адрес будет `https://<логин>.github.io/<репозиторий>/`. Подпапка в пути учитывается автоматически:
+workflow передаёт в сборку `BASE_PATH=/<репозиторий>/`, а `vite.config.ts` подставляет её в `base`.
+Локально переменная не задана, поэтому дев-сервер работает от корня.
+
+### Другие хостинги
+
+Cloudflare Pages, Netlify и Vercel тоже деплоят по пушу, но отдают сайт с корня домена — там
+`BASE_PATH` задавать не нужно, команда сборки `npm run build`, каталог с результатом `dist`.
