@@ -10,12 +10,8 @@ import {
   Toolbar,
 } from '../../components/ui.tsx'
 import { cx } from '../../lib/cx.ts'
-import {
-  base64FromDataUrl,
-  decodeBase64Image,
-  extensionForMime,
-  formatBytes,
-} from './base64.ts'
+import { formatBytes } from '../../lib/format.ts'
+import { base64FromDataUrl, decodeBase64Image, extensionForMime } from './base64.ts'
 import './Base64ImageTool.css'
 
 type Mode = 'encode' | 'decode'

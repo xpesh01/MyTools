@@ -37,6 +37,15 @@ export const TOOLS: Tool[] = [
     Component: lazy(() => import('./base64-image/Base64ImageTool.tsx')),
   },
   {
+    slug: 'svg-preview',
+    title: 'SVG из текста',
+    description:
+      'Вытаскивает все SVG из произвольного текста, показывает их и даёт скачать каждый файлом.',
+    category: 'images',
+    keywords: ['svg', 'иконки', 'превью', 'вектор', 'скачать', 'извлечь'],
+    Component: lazy(() => import('./svg-preview/SvgPreviewTool.tsx')),
+  },
+  {
     slug: 'text-diff',
     title: 'Сравнение текста',
     description:
