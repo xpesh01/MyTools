@@ -2,9 +2,56 @@
   position: relative;
 }
 
-.drop-area--active .textarea {
+.drop-area--active .textarea,
+.drop-area--active .scan-panel {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* Вместо текстового поля, когда содержимое пришло из файла и в поле не загружалось */
+.scan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+
+.scan-panel__done {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.scan-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scan-progress__track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.scan-progress__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.scan-progress__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .drop-area__overlay {

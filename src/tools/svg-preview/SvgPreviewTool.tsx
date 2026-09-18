@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button,
   Callout,
@@ -15,35 +15,53 @@ import type { SvgInfo } from './extractSvg.ts'
 import {
   extractSvgs,
   inspectSvg,
-  lineOf,
   suggestFileName,
   toDataUrl,
   unescapeMarkup,
   withNamespaces,
 } from './extractSvg.ts'
+import type { FoundSvg, ScanProgress, ScanResult } from './scanFiles.ts'
+import { MAX_UNIQUE, SvgCollector, scanFiles } from './scanFiles.ts'
 import './SvgPreviewTool.css'
 
 type Background = 'checker' | 'light' | 'dark'
 
-/** Больше в текстовое поле грузить бессмысленно: браузер начнёт заметно тормозить. */
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+/** Файл читается потоком и в поле ввода не попадает, так что предел тут — про здравый смысл. */
+const MAX_FILE_SIZE = 1024 * 1024 * 1024
+
+/** Сколько карточек рисуем за раз: каждая — это разбор SVG и ещё одна картинка в памяти. */
+const PAGE = 60
 
 const TEXT_FILE_TYPES = '.log,.txt,.svg,.json,.xml,.html,.htm,.md,.csv,.js,.jsx,.ts,.tsx,.vue,.css,text/*'
+
+/** Общая пустышка: новый литерал на каждый рендер сбрасывал бы useMemo с карточками. */
+const NOTHING: FoundSvg[] = []
 
 export default function SvgPreviewTool() {
   const [input, setInput] = useState('')
   const [background, setBackground] = useState<Background>('checker')
   const [dragging, setDragging] = useState(false)
   const [loaded, setLoaded] = useState<{ names: string[]; bytes: number } | null>(null)
+  const [scan, setScan] = useState<ScanResult | null>(null)
+  const [progress, setProgress] = useState<ScanProgress | null>(null)
   const [fileError, setFileError] = useState('')
+  const [visible, setVisible] = useState(PAGE)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const scanRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => scanRef.current?.abort(), [])
 
   const deferredInput = useDeferredValue(input)
+  const textResult = useMemo(() => parseText(deferredInput), [deferredInput])
 
-  const { items, unescaped } = useMemo(() => parse(deferredInput), [deferredInput])
+  const result = loaded ? scan : textResult
+  const items = result?.items ?? NOTHING
 
-  const brokenCount = items.filter((item) => item.info.error).length
+  // Разбор и data URL стоят дорого, поэтому считаем их только для показанных карточек
+  const cards = useMemo(() => items.slice(0, visible).map(toCard), [items, visible])
+
   const totalBytes = items.reduce((sum, item) => sum + item.bytes, 0)
+  const brokenCount = cards.filter((card) => card.info.error).length
 
   async function loadFiles(files: FileList | null) {
     const list = [...(files ?? [])]
@@ -52,28 +70,49 @@ export default function SvgPreviewTool() {
     const tooBig = list.find((file) => file.size > MAX_FILE_SIZE)
     if (tooBig) {
       setFileError(
-        `«${tooBig.name}» весит ${formatBytes(tooBig.size)} — это больше ${formatBytes(MAX_FILE_SIZE)}. Вставьте нужный фрагмент текстом.`,
+        `«${tooBig.name}» весит ${formatBytes(tooBig.size)} — это больше ${formatBytes(MAX_FILE_SIZE)}.`,
       )
       return
     }
 
+    scanRef.current?.abort()
+    const controller = new AbortController()
+    scanRef.current = controller
+
+    const bytes = list.reduce((sum, file) => sum + file.size, 0)
+    setFileError('')
+    setInput('')
+    setScan(null)
+    setVisible(PAGE)
+    setLoaded({ names: list.map((file) => file.name), bytes })
+    setProgress({ bytesRead: 0, totalBytes: bytes, found: 0, unique: 0 })
+
     try {
-      const texts = await Promise.all(list.map((file) => file.text()))
-      setInput(texts.join('\n\n'))
-      setLoaded({
-        names: list.map((file) => file.name),
-        bytes: list.reduce((sum, file) => sum + file.size, 0),
-      })
-      setFileError('')
+      const found = await scanFiles(list, { signal: controller.signal, onProgress: setProgress })
+      // Пока читали, могли загрузить другой файл — тогда результат уже не нужен
+      if (scanRef.current !== controller) return
+      setScan(found)
     } catch {
+      if (scanRef.current !== controller) return
       setFileError('Не удалось прочитать файл.')
+      setLoaded(null)
+    } finally {
+      if (scanRef.current === controller) {
+        scanRef.current = null
+        setProgress(null)
+      }
     }
   }
 
   function reset() {
+    scanRef.current?.abort()
+    scanRef.current = null
     setInput('')
     setLoaded(null)
+    setScan(null)
+    setProgress(null)
     setFileError('')
+    setVisible(PAGE)
   }
 
   return (
@@ -89,12 +128,17 @@ export default function SvgPreviewTool() {
             >
               Открыть файл
             </Button>
-            <Button variant="ghost" className="btn--compact" disabled={!input} onClick={reset}>
+            <Button
+              variant="ghost"
+              className="btn--compact"
+              disabled={!input && !loaded}
+              onClick={reset}
+            >
               Очистить
             </Button>
           </Toolbar>
         }
-        hint="Лишний текст вокруг можно не убирать. Атрибут xmlns дописывается автоматически, если его нет, а превью рисуется через <img>, поэтому скрипты внутри SVG не выполняются."
+        hint="Лишний текст вокруг можно не убирать. Файл читается по кускам, и в поле он не попадает — из него забираются только сами SVG, поэтому размер лога значения не имеет."
       >
         <div
           className={cx('drop-area', dragging && 'drop-area--active')}
@@ -112,17 +156,35 @@ export default function SvgPreviewTool() {
             void loadFiles(event.dataTransfer.files)
           }}
         >
-          <TextArea
-            value={input}
-            onChange={(event) => {
-              setInput(event.target.value)
-              setLoaded(null)
-            }}
-            placeholder={
-              'Вставьте текст или перетащите сюда файл (.log, .txt, .svg, .json…), например:\n\nicon: <svg viewBox="0 0 24 24">…</svg>'
-            }
-          />
-          {dragging && <p className="drop-area__overlay">Отпустите файл — текст загрузится в поле</p>}
+          {loaded ? (
+            <div className="scan-panel">
+              <p className="loaded-file">
+                {loaded.names.join(', ')} · {formatBytes(loaded.bytes)}
+              </p>
+
+              {progress ? (
+                <ScanProgressView progress={progress} onStop={() => scanRef.current?.abort()} />
+              ) : (
+                <p className="scan-panel__done">
+                  {scan?.stopped
+                    ? 'Чтение остановлено. Чтобы вернуться к тексту, нажмите «Очистить».'
+                    : 'Файл прочитан, в поле ввода он не загружался. Чтобы вернуться к тексту, нажмите «Очистить».'}
+                </p>
+              )}
+            </div>
+          ) : (
+            <TextArea
+              value={input}
+              onChange={(event) => {
+                setInput(event.target.value)
+                setVisible(PAGE)
+              }}
+              placeholder={
+                'Вставьте текст или перетащите сюда файл (.log, .txt, .svg, .json…), например:\n\nicon: <svg viewBox="0 0 24 24">…</svg>'
+              }
+            />
+          )}
+          {dragging && <p className="drop-area__overlay">Отпустите файл — из него заберутся SVG</p>}
         </div>
 
         <input
@@ -138,36 +200,51 @@ export default function SvgPreviewTool() {
           }}
         />
 
-        {loaded && (
-          <p className="loaded-file">
-            Загружено: {loaded.names.join(', ')} · {formatBytes(loaded.bytes)}
-          </p>
-        )}
         {fileError && <Callout tone="error">{fileError}</Callout>}
       </Field>
 
-      {!input.trim() && (
+      {!loaded && !input.trim() && (
         <Callout>Вставьте текст или загрузите файл — все найденные SVG появятся ниже.</Callout>
       )}
 
-      {input.trim() && items.length === 0 && (
+      {result && items.length === 0 && (loaded || input.trim()) && (
         <Callout tone="error">
           SVG не найден: нужен открывающий тег <code>&lt;svg</code> и закрывающий <code>&lt;/svg&gt;</code>.
         </Callout>
       )}
 
-      {items.length > 0 && (
+      {items.length > 0 && result && (
         <>
-          {unescaped && (
+          {result.unescaped && (
             <Callout>
               В исходном виде SVG не читался, поэтому разметка была разэкранирована — так бывает при
               копировании из JSON или HTML-атрибута.
             </Callout>
           )}
 
+          {result.stopped && (
+            <Callout>Чтение остановлено — показано то, что нашлось в прочитанной части.</Callout>
+          )}
+
+          {result.truncated && (
+            <Callout>
+              Разных SVG оказалось больше {MAX_UNIQUE} — показаны первые, остальные пропущены, чтобы
+              не занимать память.
+            </Callout>
+          )}
+
+          {result.skipped > 0 && (
+            <Callout>
+              Пропущено фрагментов: {result.skipped}. У них не нашлось закрывающего{' '}
+              <code>&lt;/svg&gt;</code> на разумном расстоянии.
+            </Callout>
+          )}
+
           <Stats
             items={[
-              { label: 'Найдено', value: items.length },
+              { label: 'Найдено', value: result.found },
+              ...(result.found === items.length ? [] : [{ label: 'Из них разных', value: items.length }]),
+              ...(cards.length < items.length ? [{ label: 'Показано', value: cards.length }] : []),
               { label: 'Суммарный размер', value: formatBytes(totalBytes) },
               ...(brokenCount > 0 ? [{ label: 'С ошибками', value: brokenCount }] : []),
             ]}
@@ -187,26 +264,29 @@ export default function SvgPreviewTool() {
           </Toolbar>
 
           <div className="svg-grid">
-            {items.map((item, index) => (
-              <figure key={`${item.line}-${index}`} className="svg-card">
+            {cards.map((card, index) => (
+              <figure key={`${card.item.line}-${index}`} className="svg-card">
                 <div className={cx('svg-canvas', `svg-canvas--${background}`)}>
-                  {item.info.error ? (
+                  {card.info.error ? (
                     <span className="svg-canvas__broken">не отображается</span>
                   ) : (
-                    <img src={item.dataUrl} alt={item.fileName} loading="lazy" />
+                    <img src={card.dataUrl} alt={card.fileName} loading="lazy" />
                   )}
                 </div>
 
                 <figcaption className="svg-card__body">
                   <div className="svg-card__head">
-                    <strong className="svg-card__name">{item.fileName}</strong>
-                    <span className="svg-card__line">строка {item.line}</span>
+                    <strong className="svg-card__name">{card.fileName}</strong>
+                    <span className="svg-card__line">
+                      {card.item.source ? `${card.item.source}, ` : ''}строка {card.item.line}
+                      {card.item.count > 1 && ` · ×${card.item.count}`}
+                    </span>
                   </div>
 
-                  <p className="svg-card__meta">{describe(item.info, item.bytes)}</p>
+                  <p className="svg-card__meta">{describe(card.info, card.item.bytes)}</p>
 
-                  {item.info.error && <Callout tone="error">{item.info.error}</Callout>}
-                  {item.info.hasScript && (
+                  {card.info.error && <Callout tone="error">{card.info.error}</Callout>}
+                  {card.info.hasScript && (
                     <Callout>
                       Внутри есть <code>&lt;script&gt;</code> — в превью он не запускается, но перед
                       использованием файл стоит проверить.
@@ -216,61 +296,100 @@ export default function SvgPreviewTool() {
                   <Toolbar>
                     <a
                       className="btn btn--ghost btn--compact"
-                      href={item.dataUrl}
-                      download={item.fileName}
+                      href={card.dataUrl}
+                      download={card.fileName}
                     >
                       Скачать
                     </a>
-                    <CopyButton value={item.code} label="Копировать код" />
+                    <CopyButton value={card.code} label="Копировать код" />
                   </Toolbar>
                 </figcaption>
               </figure>
             ))}
           </div>
+
+          {cards.length < items.length && (
+            <Toolbar>
+              <Button onClick={() => setVisible((shown) => shown + PAGE)}>
+                Показать ещё {Math.min(PAGE, items.length - cards.length)}
+              </Button>
+            </Toolbar>
+          )}
         </>
       )}
     </div>
   )
 }
 
-interface SvgItem {
-  code: string
-  info: SvgInfo
-  line: number
-  bytes: number
-  fileName: string
-  dataUrl: string
+function ScanProgressView({ progress, onStop }: { progress: ScanProgress; onStop: () => void }) {
+  const percent = progress.totalBytes
+    ? Math.min(100, Math.round((progress.bytesRead / progress.totalBytes) * 100))
+    : 0
+
+  return (
+    <div className="scan-progress">
+      <div
+        className="scan-progress__track"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <span className="scan-progress__bar" style={{ width: `${percent}%` }} />
+      </div>
+
+      <div className="scan-progress__meta">
+        <span>
+          Прочитано {formatBytes(progress.bytesRead)} из {formatBytes(progress.totalBytes)} · найдено{' '}
+          {progress.found}
+        </span>
+        <Button variant="ghost" className="btn--compact" onClick={onStop}>
+          Остановить
+        </Button>
+      </div>
+    </div>
+  )
 }
 
-function parse(input: string): { items: SvgItem[]; unescaped: boolean } {
-  let source = input
-  let matches = extractSvgs(source)
+interface Card {
+  item: FoundSvg
+  code: string
+  info: SvgInfo
+  dataUrl: string
+  fileName: string
+}
+
+function toCard(item: FoundSvg, index: number): Card {
+  const code = withNamespaces(item.code)
+  const info = inspectSvg(code)
+
+  return { item, code, info, dataUrl: toDataUrl(code), fileName: suggestFileName(info, index) }
+}
+
+/** Разбор того, что вставили руками: текст небольшой, поэтому читаем его целиком. */
+function parseText(input: string): ScanResult {
+  const collector = new SvgCollector()
+  let matches = extractSvgs(input)
   let unescaped = false
 
   if (matches.length === 0 && input.trim()) {
-    const decoded = unescapeMarkup(input)
-    const decodedMatches = extractSvgs(decoded)
-    if (decodedMatches.length > 0) {
-      source = decoded
-      matches = decodedMatches
+    const decoded = extractSvgs(unescapeMarkup(input))
+    if (decoded.length > 0) {
+      matches = decoded
       unescaped = true
     }
   }
 
-  const items = matches.map((match, index) => {
-    const code = withNamespaces(match.code)
-    const info = inspectSvg(code)
-    return {
-      code,
-      info,
-      line: lineOf(source, match.start),
-      bytes: new TextEncoder().encode(code).length,
-      fileName: suggestFileName(info, index),
-      dataUrl: toDataUrl(code),
-    }
-  })
+  collector.add(matches)
 
-  return { items, unescaped }
+  return {
+    items: collector.items(),
+    found: collector.found,
+    truncated: collector.truncated,
+    skipped: 0,
+    unescaped,
+    stopped: false,
+  }
 }
 
 function describe(info: SvgInfo, bytes: number) {
