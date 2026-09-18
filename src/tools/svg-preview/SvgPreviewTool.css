@@ -1,3 +1,31 @@
+.drop-area {
+  position: relative;
+}
+
+.drop-area--active .textarea {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop-area__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  background: rgba(13, 17, 23, 0.75);
+  color: var(--text);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.loaded-file {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
 .svg-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
