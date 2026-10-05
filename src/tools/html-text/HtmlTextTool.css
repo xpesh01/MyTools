@@ -1,0 +1,46 @@
+.url-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.url-row .input {
+  flex: 1;
+}
+
+@media (max-width: 560px) {
+  .url-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* Панель вместо поля ввода, когда разметка пришла из файла или по ссылке */
+.page-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--field);
+}
+
+.drop-area--active .page-panel {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.page-panel__source {
+  font-family: var(--mono);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.page-panel__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.markdown-output {
+  min-height: 420px;
+}

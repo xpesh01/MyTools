@@ -21,6 +21,7 @@ npm run lint     # oxlint
 | --- | --- | --- |
 | Base64 ↔ изображение | `/tools/base64-image` | Файл в data URL и обратно, превью, скачивание, сниппеты HTML/CSS |
 | SVG из текста | `/tools/svg-preview` | Находит все SVG в тексте или файле лога, рисует превью и даёт скачать каждый |
+| Текст из HTML | `/tools/html-text` | Выжимка страницы для нейросетей: по ссылке, из вставленного HTML или файла; таблицы и списки остаются в Markdown |
 | Сравнение текста | `/tools/text-diff` | Посимвольный diff с подсветкой и позицией первого различия |
 | Регистр и нотации | `/tools/case-converter` | UPPERCASE, camelCase, snake_case, kebab-case и другие |
 

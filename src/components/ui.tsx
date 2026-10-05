@@ -58,6 +58,10 @@ export function TextArea({ className, ...rest }: ComponentProps<'textarea'>) {
   return <textarea spellCheck={false} className={cx('textarea', className)} {...rest} />
 }
 
+export function Input({ className, ...rest }: ComponentProps<'input'>) {
+  return <input spellCheck={false} className={cx('input', className)} {...rest} />
+}
+
 export function SegmentedControl<T extends string>({
   value,
   options,

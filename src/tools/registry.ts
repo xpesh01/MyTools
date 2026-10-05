@@ -46,6 +46,15 @@ export const TOOLS: Tool[] = [
     Component: lazy(() => import('./svg-preview/SvgPreviewTool.tsx')),
   },
   {
+    slug: 'html-text',
+    title: 'Текст из HTML',
+    description:
+      'Выжимка страницы для нейросетей: без скриптов, меню и иконок, но с заголовками, списками и таблицами в Markdown.',
+    category: 'text',
+    keywords: ['html', 'markdown', 'текст', 'страница', 'ссылка', 'url', 'нейросеть', 'llm', 'gpt', 'парсинг', 'статья', 'таблица'],
+    Component: lazy(() => import('./html-text/HtmlTextTool.tsx')),
+  },
+  {
     slug: 'text-diff',
     title: 'Сравнение текста',
     description:
